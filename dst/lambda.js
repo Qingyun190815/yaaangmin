@@ -1,13 +1,16 @@
 "use strict";
-const box_width = 20;
-const radius = 10;
+const box_width = 40;
+const radius = 20;
 class DrawableNode {
     constructor() {
         this.coord_x = 0;
         this.coord_y = 0;
         this.left_width = 0;
         this.right_width = 0;
+        this.height = 0;
     }
+    getText() { return "xx"; }
+    getColor() { return "white"; }
     setCoordinates(x, y) {
         this.coord_x = x;
         this.coord_y = y;
@@ -15,41 +18,46 @@ class DrawableNode {
     measureTree() {
         this.left_width = 0;
         this.right_width = 0;
+        this.height = box_width;
+        let left_height = 0;
+        let right_height = 0;
         if (this.left) {
             this.left.measureTree();
             this.left_width = this.left.left_width + box_width + this.left.right_width;
+            left_height = this.left.height;
         }
         if (this.right) {
             this.right.measureTree();
             this.right_width = this.right.left_width + box_width + this.right.right_width;
+            right_height = this.right.height;
         }
+        this.height += left_height > right_height ? left_height : right_height;
     }
-    computCoordinates() {
+    getSVGContents() {
+        let innerHTML = "";
+        let leftinnerHTML = "";
+        let rightinnerHTML = "";
         if (this.left) {
             this.left.setCoordinates(this.coord_x - box_width - this.left.right_width, this.coord_y + box_width);
-            this.left.computCoordinates();
+            innerHTML += `<line x1= "${this.coord_x}" y1 = "${this.coord_y}" x2 = "${this.left.coord_x}" y2 = "${this.left.coord_y}" style="stroke:black;stroke-width:1" />`;
+            leftinnerHTML = this.left.getSVGContents();
         }
         if (this.right) {
             this.right.setCoordinates(this.coord_x + box_width + this.right.left_width, this.coord_y + box_width);
-            this.right.computCoordinates();
+            innerHTML += `<line x1= "${this.coord_x}" y1 = "${this.coord_y}" x2 = "${this.right.coord_x}" y2 = "${this.right.coord_y}" style="stroke:black;stroke-width:1" />`;
+            rightinnerHTML = this.right.getSVGContents();
         }
-    }
-    getSVGCircles() {
-        let innerHTML = `<circle cx="${this.coord_x}" cy="${this.coord_y}" r="${radius}" stroke="black" fill="none" />`;
-        if (this.left) {
-            innerHTML += this.left.getSVGCircles();
-        }
-        if (this.right) {
-            innerHTML += this.right.getSVGCircles();
-        }
+        innerHTML += `<circle cx="${this.coord_x}" cy="${this.coord_y}" r="${radius}" stroke="black" fill="${this.getColor()}" />`;
+        innerHTML += `<text text-anchor="middle" x= "${this.coord_x}" y= "${this.coord_y}">${this.getText()}</text>`;
+        innerHTML += leftinnerHTML;
+        innerHTML += rightinnerHTML;
         return innerHTML;
     }
     getSVGInnerHTML() {
-        let innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" version="1.1">';
         this.measureTree();
-        this.setCoordinates(this.left_width + box_width, box_width);
-        this.computCoordinates();
-        innerHTML += this.getSVGCircles() + "</svg>";
+        let innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" height="${this.height + 20}"  width = ${box_width + this.left_width + this.right_width + 20} version="1.1">`;
+        this.setCoordinates(this.left_width + box_width / 2 + 10, box_width / 2 + 10);
+        innerHTML += this.getSVGContents() + "</svg>";
         return innerHTML;
     }
 }
@@ -61,6 +69,21 @@ class Term extends DrawableNode {
         this.name = name;
         this.left = left;
         this.right = right;
+    }
+    getText() {
+        var _a;
+        if (this.type === "var") {
+            return (_a = this.name) !== null && _a !== void 0 ? _a : "";
+        }
+        else {
+            return this.type;
+        }
+    }
+    getColor() {
+        if (this.type === "app" && this.left && this.left.type === "func") {
+            return "pink";
+        }
+        return "white";
     }
     toString() {
         var _a, _b, _c, _d, _e;
