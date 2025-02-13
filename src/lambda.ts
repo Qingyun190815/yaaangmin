@@ -11,8 +11,8 @@ class DrawableNode {
     right_width: number = 0;
     height: number = 0;
 
-    protected getText() {return "xx";}
-    protected getColor() {return "white";}
+    protected getText() { return "xx"; }
+    protected getColor() { return "white"; }
 
     public setCoordinates(x: number, y: number) {
         this.coord_x = x;
@@ -87,10 +87,12 @@ class DrawableNode {
 
 
 class Term extends DrawableNode {
-    public type: string = "udf";
-    public name?: string | null;
-    public left?: Term | null;
-    public right?: Term | null;
+    type: string = "udf";
+    name?: string | null;
+    left?: Term | null;
+    right?: Term | null;
+    index?:number;
+
 
     constructor(type: string, name?: string | null, left?: Term | null, right?: Term | null) {
         super();
@@ -101,15 +103,15 @@ class Term extends DrawableNode {
     }
 
     public getText(): string {
-        if(this.type === "var"){
-            return this.name ?? "";
-        }else{
+        if (this.type === "var") {
+            return ` ${this.name ?? ""}_${this.index ?? -1} `;
+        } else {
             return this.type;
-        }    
+        }
     }
 
     public getColor(): string {
-        if(this.type === "app" && this.left && this.left.type === "func"){
+        if (this.type === "app" && this.left && this.left.type === "func") {
             return "pink";
         }
         return "white";
@@ -163,6 +165,45 @@ class Term extends DrawableNode {
             return new Term("var", input);
         }
     }
+
+
+    static alphaConvert(x: Term){
+        Term.indexBoundVariables(x,0,[]);
+    }
+
+    static indexBoundVariables(x: Term, counter: number ,stack:Term[]) :number {
+        if(x.type === "func"){
+            counter += 1 ;
+            if(x.left && x.left.type === "var"){
+                x.left.index = counter;
+                if(x.right) {
+                    stack.push(x.left);
+                    counter = Term.indexBoundVariables(x.right,counter,stack);
+                    stack.pop();
+                }
+            }
+            return counter;
+        }
+        else if(x.type === "app") {
+            if(x.left){
+                counter = Term.indexBoundVariables(x.left,counter,stack);
+            }
+            if(x.right){
+                counter = Term.indexBoundVariables(x.right,counter,stack);
+            }
+            return counter;
+        }
+        else if (x.type === "var") {
+            for(let i = stack.length - 1 ; 0 <= i ; i--){
+                if(stack[i].name && stack[i].name === x.name) {
+                    x.index = stack[i].index;
+                    return counter;
+                }
+            }
+            x.index = 0;
+        }
+        return counter;
+    }
 }
 
 
@@ -177,6 +218,8 @@ function evaluateExpr() {
                 console.log("binary tree to string: ", root.toString())
                 root.setCoordinates(0, 0);
 
+                Term.alphaConvert(root);
+                
                 let svgCanvas = document.getElementById("canvas") as HTMLElement | null;
                 if (svgCanvas) {
                     svgCanvas.innerHTML = root.getSVGInnerHTML();

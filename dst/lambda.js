@@ -71,9 +71,9 @@ class Term extends DrawableNode {
         this.right = right;
     }
     getText() {
-        var _a;
+        var _a, _b;
         if (this.type === "var") {
-            return (_a = this.name) !== null && _a !== void 0 ? _a : "";
+            return ` ${(_a = this.name) !== null && _a !== void 0 ? _a : ""}_${(_b = this.index) !== null && _b !== void 0 ? _b : -1} `;
         }
         else {
             return this.type;
@@ -134,6 +134,42 @@ class Term extends DrawableNode {
             return new Term("var", input);
         }
     }
+    static alphaConvert(x) {
+        Term.indexBoundVariables(x, 0, []);
+    }
+    static indexBoundVariables(x, counter, stack) {
+        if (x.type === "func") {
+            counter += 1;
+            if (x.left && x.left.type === "var") {
+                x.left.index = counter;
+                if (x.right) {
+                    stack.push(x.left);
+                    counter = Term.indexBoundVariables(x.right, counter, stack);
+                    stack.pop();
+                }
+            }
+            return counter;
+        }
+        else if (x.type === "app") {
+            if (x.left) {
+                counter = Term.indexBoundVariables(x.left, counter, stack);
+            }
+            if (x.right) {
+                counter = Term.indexBoundVariables(x.right, counter, stack);
+            }
+            return counter;
+        }
+        else if (x.type === "var") {
+            for (let i = stack.length - 1; 0 <= i; i--) {
+                if (stack[i].name && stack[i].name === x.name) {
+                    x.index = stack[i].index;
+                    return counter;
+                }
+            }
+            x.index = 0;
+        }
+        return counter;
+    }
 }
 function evaluateExpr() {
     let inputbox = document.getElementById("input-text");
@@ -144,6 +180,7 @@ function evaluateExpr() {
             if (root) {
                 console.log("binary tree to string: ", root.toString());
                 root.setCoordinates(0, 0);
+                Term.alphaConvert(root);
                 let svgCanvas = document.getElementById("canvas");
                 if (svgCanvas) {
                     svgCanvas.innerHTML = root.getSVGInnerHTML();
