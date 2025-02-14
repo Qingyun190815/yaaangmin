@@ -1,7 +1,38 @@
 const box_width: number = 40;
 const radius: number = 20;
 
+
+class NodeStorage{
+    private counter : number  = 0;
+    private storage : Map<number,DrawableNode> = new Map();
+
+    private static instance : NodeStorage = new NodeStorage();
+    private constructor(){}
+    static getInstance() : NodeStorage{
+        return this.instance;
+    }
+    public getCouner() : number {
+        this.counter += 1;
+        return this.counter;
+    }
+    public resetStorage():void {
+        this.counter = 0;
+        this.storage.clear();
+    }
+
+    public insertNode(node : DrawableNode):void {
+        this.storage.set(node.nodeid,node);
+    }
+
+    public getNode(nodeid:number):DrawableNode | undefined {
+        return this.storage.get(nodeid) ?? undefined;
+    }
+
+}
 class DrawableNode {
+    
+    nodeid:number = -1;
+
     left?: DrawableNode | null;
     right?: DrawableNode | null;
 
@@ -13,6 +44,7 @@ class DrawableNode {
 
     protected getText() { return "xx"; }
     protected getColor() { return "white"; }
+    protected isClickable(): boolean { return false; }
 
     public setCoordinates(x: number, y: number) {
         this.coord_x = x;
@@ -21,6 +53,7 @@ class DrawableNode {
 
 
     private measureTree(): void {
+        this.nodeid = NodeStorage.getInstance().getCouner();
         this.left_width = 0;
         this.right_width = 0;
         this.height = box_width;
@@ -63,7 +96,16 @@ class DrawableNode {
             rightinnerHTML = this.right.getSVGContents();
         }
 
-        innerHTML += `<circle cx="${this.coord_x}" cy="${this.coord_y}" r="${radius}" stroke="black" fill="${this.getColor()}" />`;
+        if (this.isClickable()) {
+            NodeStorage.getInstance().insertNode(this);
+            innerHTML += `<circle cx="${this.coord_x}" cy="${this.coord_y}" r="${radius}" stroke="black" 
+            fill="${this.getColor()}" onClick="Term.onClickRedex(${this.nodeid})" />`;
+        } else {
+            innerHTML += `<circle cx="${this.coord_x}" cy="${this.coord_y}" r="${radius}" stroke="black" 
+            fill="${this.getColor()}" />`;
+        }
+
+
         innerHTML += `<text text-anchor="middle" x= "${this.coord_x}" y= "${this.coord_y}">${this.getText()}</text>`;
         innerHTML += leftinnerHTML;
         innerHTML += rightinnerHTML;
@@ -72,6 +114,7 @@ class DrawableNode {
 
 
     public getSVGInnerHTML(): string {
+        NodeStorage.getInstance().resetStorage();
         this.measureTree();
         let innerHTML: string = `<svg xmlns="http://www.w3.org/2000/svg" height="${this.height + 20}"  width = ${box_width + this.left_width + this.right_width + 20} version="1.1">`;
 
@@ -91,7 +134,7 @@ class Term extends DrawableNode {
     name?: string | null;
     left?: Term | null;
     right?: Term | null;
-    index?:number;
+    index?: number;
 
 
     constructor(type: string, name?: string | null, left?: Term | null, right?: Term | null) {
@@ -102,6 +145,12 @@ class Term extends DrawableNode {
         this.right = right;
     }
 
+    private isRedex(): boolean {
+        if (this.type === "app" && this.left && this.left.type === "func") {
+            return true;
+        }
+        return false;
+    }
     public getText(): string {
         if (this.type === "var") {
             return ` ${this.name ?? ""}_${this.index ?? -1} `;
@@ -111,12 +160,18 @@ class Term extends DrawableNode {
     }
 
     public getColor(): string {
-        if (this.type === "app" && this.left && this.left.type === "func") {
+        if (this.isRedex()) {
             return "pink";
         }
         return "white";
     }
 
+    public isClickable(): boolean {
+        if (this.isRedex()) {
+            return true;
+        }
+        return false;
+    }
 
     public toString(): string {
         if (this.type === "var") {
@@ -167,35 +222,35 @@ class Term extends DrawableNode {
     }
 
 
-    static alphaConvert(x: Term){
-        Term.indexBoundVariables(x,0,[]);
+    static alphaConvert(x: Term) {
+        Term.indexBoundVariables(x, 0, []);
     }
 
-    static indexBoundVariables(x: Term, counter: number ,stack:Term[]) :number {
-        if(x.type === "func"){
-            counter += 1 ;
-            if(x.left && x.left.type === "var"){
+    static indexBoundVariables(x: Term, counter: number, stack: Term[]): number {
+        if (x.type === "func") {
+            counter += 1;
+            if (x.left && x.left.type === "var") {
                 x.left.index = counter;
-                if(x.right) {
+                if (x.right) {
                     stack.push(x.left);
-                    counter = Term.indexBoundVariables(x.right,counter,stack);
+                    counter = Term.indexBoundVariables(x.right, counter, stack);
                     stack.pop();
                 }
             }
             return counter;
         }
-        else if(x.type === "app") {
-            if(x.left){
-                counter = Term.indexBoundVariables(x.left,counter,stack);
+        else if (x.type === "app") {
+            if (x.left) {
+                counter = Term.indexBoundVariables(x.left, counter, stack);
             }
-            if(x.right){
-                counter = Term.indexBoundVariables(x.right,counter,stack);
+            if (x.right) {
+                counter = Term.indexBoundVariables(x.right, counter, stack);
             }
             return counter;
         }
         else if (x.type === "var") {
-            for(let i = stack.length - 1 ; 0 <= i ; i--){
-                if(stack[i].name && stack[i].name === x.name) {
+            for (let i = stack.length - 1; 0 <= i; i--) {
+                if (stack[i].name && stack[i].name === x.name) {
                     x.index = stack[i].index;
                     return counter;
                 }
@@ -203,6 +258,15 @@ class Term extends DrawableNode {
             x.index = 0;
         }
         return counter;
+    }
+
+    static onClickRedex( nodeid : number): void {
+        let redex = NodeStorage.getInstance().getNode(nodeid);
+        if(redex === undefined){
+            console.log("clicked redex is undefined");
+            return;
+        }
+        console.log(`redex ${redex.nodeid} is clicked`);
     }
 }
 
@@ -215,11 +279,8 @@ function evaluateExpr() {
         if (inputExpr) {
             let root: Term | null = Term.parseExpression(inputExpr);
             if (root) {
-                console.log("binary tree to string: ", root.toString())
                 root.setCoordinates(0, 0);
-
                 Term.alphaConvert(root);
-                
                 let svgCanvas = document.getElementById("canvas") as HTMLElement | null;
                 if (svgCanvas) {
                     svgCanvas.innerHTML = root.getSVGInnerHTML();

@@ -1,8 +1,34 @@
 "use strict";
 const box_width = 40;
 const radius = 20;
+class NodeStorage {
+    constructor() {
+        this.counter = 0;
+        this.storage = new Map();
+    }
+    static getInstance() {
+        return this.instance;
+    }
+    getCouner() {
+        this.counter += 1;
+        return this.counter;
+    }
+    resetStorage() {
+        this.counter = 0;
+        this.storage.clear();
+    }
+    insertNode(node) {
+        this.storage.set(node.nodeid, node);
+    }
+    getNode(nodeid) {
+        var _a;
+        return (_a = this.storage.get(nodeid)) !== null && _a !== void 0 ? _a : undefined;
+    }
+}
+NodeStorage.instance = new NodeStorage();
 class DrawableNode {
     constructor() {
+        this.nodeid = -1;
         this.coord_x = 0;
         this.coord_y = 0;
         this.left_width = 0;
@@ -11,11 +37,13 @@ class DrawableNode {
     }
     getText() { return "xx"; }
     getColor() { return "white"; }
+    isClickable() { return false; }
     setCoordinates(x, y) {
         this.coord_x = x;
         this.coord_y = y;
     }
     measureTree() {
+        this.nodeid = NodeStorage.getInstance().getCouner();
         this.left_width = 0;
         this.right_width = 0;
         this.height = box_width;
@@ -47,13 +75,22 @@ class DrawableNode {
             innerHTML += `<line x1= "${this.coord_x}" y1 = "${this.coord_y}" x2 = "${this.right.coord_x}" y2 = "${this.right.coord_y}" style="stroke:black;stroke-width:1" />`;
             rightinnerHTML = this.right.getSVGContents();
         }
-        innerHTML += `<circle cx="${this.coord_x}" cy="${this.coord_y}" r="${radius}" stroke="black" fill="${this.getColor()}" />`;
+        if (this.isClickable()) {
+            NodeStorage.getInstance().insertNode(this);
+            innerHTML += `<circle cx="${this.coord_x}" cy="${this.coord_y}" r="${radius}" stroke="black" 
+            fill="${this.getColor()}" onClick="Term.onClickRedex(${this.nodeid})" />`;
+        }
+        else {
+            innerHTML += `<circle cx="${this.coord_x}" cy="${this.coord_y}" r="${radius}" stroke="black" 
+            fill="${this.getColor()}" />`;
+        }
         innerHTML += `<text text-anchor="middle" x= "${this.coord_x}" y= "${this.coord_y}">${this.getText()}</text>`;
         innerHTML += leftinnerHTML;
         innerHTML += rightinnerHTML;
         return innerHTML;
     }
     getSVGInnerHTML() {
+        NodeStorage.getInstance().resetStorage();
         this.measureTree();
         let innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" height="${this.height + 20}"  width = ${box_width + this.left_width + this.right_width + 20} version="1.1">`;
         this.setCoordinates(this.left_width + box_width / 2 + 10, box_width / 2 + 10);
@@ -70,6 +107,12 @@ class Term extends DrawableNode {
         this.left = left;
         this.right = right;
     }
+    isRedex() {
+        if (this.type === "app" && this.left && this.left.type === "func") {
+            return true;
+        }
+        return false;
+    }
     getText() {
         var _a, _b;
         if (this.type === "var") {
@@ -80,10 +123,16 @@ class Term extends DrawableNode {
         }
     }
     getColor() {
-        if (this.type === "app" && this.left && this.left.type === "func") {
+        if (this.isRedex()) {
             return "pink";
         }
         return "white";
+    }
+    isClickable() {
+        if (this.isRedex()) {
+            return true;
+        }
+        return false;
     }
     toString() {
         var _a, _b, _c, _d, _e;
@@ -170,6 +219,14 @@ class Term extends DrawableNode {
         }
         return counter;
     }
+    static onClickRedex(nodeid) {
+        let redex = NodeStorage.getInstance().getNode(nodeid);
+        if (redex === undefined) {
+            console.log("clicked redex is undefined");
+            return;
+        }
+        console.log(`redex ${redex.nodeid} is clicked`);
+    }
 }
 function evaluateExpr() {
     let inputbox = document.getElementById("input-text");
@@ -178,7 +235,6 @@ function evaluateExpr() {
         if (inputExpr) {
             let root = Term.parseExpression(inputExpr);
             if (root) {
-                console.log("binary tree to string: ", root.toString());
                 root.setCoordinates(0, 0);
                 Term.alphaConvert(root);
                 let svgCanvas = document.getElementById("canvas");
