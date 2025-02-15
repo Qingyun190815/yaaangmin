@@ -2,36 +2,37 @@ const box_width: number = 40;
 const radius: number = 20;
 
 
-class NodeStorage{
-    private counter : number  = 0;
-    private storage : Map<number,DrawableNode> = new Map();
+class NodeStorage {
+    private counter: number = 0;
+    private storage: Map<number, DrawableNode> = new Map();
+    public root : Term | null = null ;
 
-    private static instance : NodeStorage = new NodeStorage();
-    private constructor(){}
-    static getInstance() : NodeStorage{
+    private static instance: NodeStorage = new NodeStorage();
+    private constructor() { }
+    static getInstance(): NodeStorage {
         return this.instance;
     }
-    public getCouner() : number {
+    public getCouner(): number {
         this.counter += 1;
         return this.counter;
     }
-    public resetStorage():void {
+    public resetStorage(): void {
         this.counter = 0;
         this.storage.clear();
     }
 
-    public insertNode(node : DrawableNode):void {
-        this.storage.set(node.nodeid,node);
+    public insertNode(node: DrawableNode): void {
+        this.storage.set(node.nodeid, node);
     }
 
-    public getNode(nodeid:number):DrawableNode | undefined {
+    public getNode(nodeid: number): DrawableNode | undefined {
         return this.storage.get(nodeid) ?? undefined;
     }
 
 }
 class DrawableNode {
-    
-    nodeid:number = -1;
+
+    nodeid: number = -1;
 
     left?: DrawableNode | null;
     right?: DrawableNode | null;
@@ -99,7 +100,7 @@ class DrawableNode {
         if (this.isClickable()) {
             NodeStorage.getInstance().insertNode(this);
             innerHTML += `<circle cx="${this.coord_x}" cy="${this.coord_y}" r="${radius}" stroke="black" 
-            fill="${this.getColor()}" onClick="Term.onClickRedex(${this.nodeid})" />`;
+            fill="${this.getColor()}" onClick="onClickRedex(${this.nodeid})" />`;
         } else {
             innerHTML += `<circle cx="${this.coord_x}" cy="${this.coord_y}" r="${radius}" stroke="black" 
             fill="${this.getColor()}" />`;
@@ -136,6 +137,9 @@ class Term extends DrawableNode {
     right?: Term | null;
     index?: number;
 
+    static indexFreeVariable(x:Term){
+
+    }
 
     constructor(type: string, name?: string | null, left?: Term | null, right?: Term | null) {
         super();
@@ -182,6 +186,18 @@ class Term extends DrawableNode {
             return "(" + this.left?.toString() + ")(" + this.right?.toString() + ")";
         }
         return "";
+    }
+
+    public duplicate(): Term | null {
+        let copy = new Term(this.type, this.name, undefined, undefined);
+        if (this.left) {
+            copy.left = this.left.duplicate();
+        }
+        if (this.right) {
+            copy.right = this.right.duplicate();
+        }
+        copy.index = -1;
+        return copy;
     }
 
 
@@ -260,14 +276,50 @@ class Term extends DrawableNode {
         return counter;
     }
 
-    static onClickRedex( nodeid : number): void {
-        let redex = NodeStorage.getInstance().getNode(nodeid);
-        if(redex === undefined){
-            console.log("clicked redex is undefined");
-            return;
+
+    static betaDFS(x: Term, subs: Term, boundVarId: number) : boolean{
+        if (x.type === "var" && x.index === boundVarId) {
+            let dup = subs.duplicate();
+            if(!dup){
+                console.log("duplication of subs failed");
+                return false;
+            }
+
+            x.left = dup.left;
+            x.right = dup.right;
+            x.type = dup.type;
+            x.name = dup.name;
+            x.index = -1;
+
+            return true;
+        } else if (x.type === "func" && x.right) {
+            Term.betaDFS(x.right, subs,boundVarId);
+            return true;
+        }else if(x.type === "app" && x.left && x.right){
+            Term.betaDFS(x.left,subs,boundVarId);
+            Term.betaDFS(x.right,subs,boundVarId);
+            return true;
         }
-        console.log(`redex ${redex.nodeid} is clicked`);
+        return false;
     }
+
+    static betaReduce(x: Term): boolean {
+        if (!x.isRedex() || !x.left || !x.right || !x.left.left || !x.left.right) {
+            return false;
+        }
+        let boundVarId = x.left?.left?.index;
+        if (boundVarId === undefined) {
+            return false;
+        }
+
+
+        Term.betaDFS(x.left?.right, x.right, boundVarId);
+  
+        return true;
+    }
+
+
+
 }
 
 
@@ -279,6 +331,7 @@ function evaluateExpr() {
         if (inputExpr) {
             let root: Term | null = Term.parseExpression(inputExpr);
             if (root) {
+                NodeStorage.getInstance().root = root;
                 root.setCoordinates(0, 0);
                 Term.alphaConvert(root);
                 let svgCanvas = document.getElementById("canvas") as HTMLElement | null;
@@ -298,3 +351,22 @@ function evaluateExpr() {
     }
 }
 
+
+function onClickRedex(nodeid: number): void {
+    let redex = NodeStorage.getInstance().getNode(nodeid);
+    if (redex === undefined) {
+        console.log("clicked redex is undefined");
+        return;
+    }
+    Term.betaReduce(redex as Term);
+
+    let root = NodeStorage.getInstance().root;
+    if(root){
+        Term.alphaConvert(root);
+        let svgCanvas = document.getElementById("canvas") as HTMLElement | null;
+        if (svgCanvas) {
+            svgCanvas.innerHTML = root.getSVGInnerHTML();
+        }
+    }
+
+}
