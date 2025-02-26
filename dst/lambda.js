@@ -233,7 +233,7 @@ class Term extends DrawableNode {
         }
         return counter;
     }
-    static betaDFS(x, subs, boundVarId) {
+    static betaSubstitue(x, subs, boundVarId) {
         if (x.type === "var" && x.index === boundVarId) {
             let dup = subs.duplicate();
             if (!dup) {
@@ -248,12 +248,12 @@ class Term extends DrawableNode {
             return true;
         }
         else if (x.type === "func" && x.right) {
-            Term.betaDFS(x.right, subs, boundVarId);
+            Term.betaSubstitue(x.right, subs, boundVarId);
             return true;
         }
         else if (x.type === "app" && x.left && x.right) {
-            Term.betaDFS(x.left, subs, boundVarId);
-            Term.betaDFS(x.right, subs, boundVarId);
+            Term.betaSubstitue(x.left, subs, boundVarId);
+            Term.betaSubstitue(x.right, subs, boundVarId);
             return true;
         }
         return false;
@@ -267,7 +267,13 @@ class Term extends DrawableNode {
         if (boundVarId === undefined) {
             return false;
         }
-        Term.betaDFS((_c = x.left) === null || _c === void 0 ? void 0 : _c.right, x.right, boundVarId);
+        Term.betaSubstitue((_c = x.left) === null || _c === void 0 ? void 0 : _c.right, x.right, boundVarId);
+        x.right = undefined;
+        let reduced = x.left.right;
+        x.left = reduced.left;
+        x.right = reduced.right;
+        x.type = reduced.type;
+        x.index = -1;
         return true;
     }
 }
@@ -307,10 +313,15 @@ function onClickRedex(nodeid) {
     Term.betaReduce(redex);
     let root = NodeStorage.getInstance().root;
     if (root) {
+        root.setCoordinates(0, 0);
         Term.alphaConvert(root);
         let svgCanvas = document.getElementById("canvas");
         if (svgCanvas) {
             svgCanvas.innerHTML = root.getSVGInnerHTML();
         }
+    }
+    let text = document.getElementById("output-text");
+    if (text) {
+        text.innerHTML = root.toString();
     }
 }
