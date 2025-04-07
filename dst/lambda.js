@@ -274,6 +274,7 @@ class Term extends DrawableNode {
         x.right = reduced.right;
         x.type = reduced.type;
         x.name = reduced.name;
+
         x.index = -1;
         return true;
     }
@@ -324,5 +325,9 @@ function onClickRedex(nodeid) {
         if (text) {
             text.innerHTML = root.toString();
         }
+    }
+    let text = document.getElementById("output-text");
+    if (text) {
+        text.innerHTML = root.toString();
     }
 }

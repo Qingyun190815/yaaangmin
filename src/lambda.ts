@@ -381,5 +381,8 @@ function onClickRedex(nodeid: number): void {
             text.innerHTML = root.toString();
         }
     }
-
+        let text = document.getElementById("output-text") as HTMLElement | null;
+        if(text) {
+            text.innerHTML = root.toString();
+        }
 }
