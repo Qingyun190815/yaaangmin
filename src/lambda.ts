@@ -320,8 +320,9 @@ class Term extends DrawableNode {
         x.left = reduced.left;
         x.right = reduced.right;
         x.type = reduced.type;
+        x.name = reduced.name;
         x.index = -1;
-
+        
         return true;
     }
 
@@ -374,6 +375,10 @@ function onClickRedex(nodeid: number): void {
         let svgCanvas = document.getElementById("canvas") as HTMLElement | null;
         if (svgCanvas) {
             svgCanvas.innerHTML = root.getSVGInnerHTML();
+        }
+        let text =document.getElementById("output-text") as HTMLElement | null;
+        if(text){
+            text.innerHTML = root.toString();
         }
     }
         let text = document.getElementById("output-text") as HTMLElement | null;
