@@ -277,7 +277,7 @@ class Term extends DrawableNode {
     }
 
 
-    static betaDFS(x: Term, subs: Term, boundVarId: number) : boolean{
+    static betaSubstitue(x: Term, subs: Term, boundVarId: number) : boolean{
         if (x.type === "var" && x.index === boundVarId) {
             let dup = subs.duplicate();
             if(!dup){
@@ -293,11 +293,11 @@ class Term extends DrawableNode {
 
             return true;
         } else if (x.type === "func" && x.right) {
-            Term.betaDFS(x.right, subs,boundVarId);
+            Term.betaSubstitue(x.right, subs,boundVarId);
             return true;
         }else if(x.type === "app" && x.left && x.right){
-            Term.betaDFS(x.left,subs,boundVarId);
-            Term.betaDFS(x.right,subs,boundVarId);
+            Term.betaSubstitue(x.left,subs,boundVarId);
+            Term.betaSubstitue(x.right,subs,boundVarId);
             return true;
         }
         return false;
@@ -313,8 +313,16 @@ class Term extends DrawableNode {
         }
 
 
-        Term.betaDFS(x.left?.right, x.right, boundVarId);
-  
+        Term.betaSubstitue(x.left?.right, x.right, boundVarId);
+        x.right = undefined;
+
+        let reduced = x.left.right;
+        x.left = reduced.left;
+        x.right = reduced.right;
+        x.type = reduced.type;
+        x.name = reduced.name;
+        x.index = -1;
+        
         return true;
     }
 
@@ -362,10 +370,15 @@ function onClickRedex(nodeid: number): void {
 
     let root = NodeStorage.getInstance().root;
     if(root){
+        root.setCoordinates(0,0);
         Term.alphaConvert(root);
         let svgCanvas = document.getElementById("canvas") as HTMLElement | null;
         if (svgCanvas) {
             svgCanvas.innerHTML = root.getSVGInnerHTML();
+        }
+        let text =document.getElementById("output-text") as HTMLElement | null;
+        if(text){
+            text.innerHTML = root.toString();
         }
     }
 
